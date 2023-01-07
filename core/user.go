@@ -5,6 +5,7 @@ import (
 	"booking-app/model"
 	"booking-app/utils"
 	"context"
+	"fmt"
 	"log"
 	"net/http"
 	"time"
@@ -60,10 +61,28 @@ func Register() gin.HandlerFunc {
 		password := utils.HashPassword(*user.Password)
 		user.Password = &password
 
-		user.ID = primitive.NewObjectID()
+		user.ID = primitive.NewObjectID().Hex()
 		user.Created_at, _ = time.Parse(time.RFC3339, time.Now().Format(time.RFC3339))
 		user.Updated_at, _ = time.Parse(time.RFC3339, time.Now().Format(time.RFC3339))
 
-		
+		token, refreshToken, err := utils.GenerateAuthToken(*user.Email, *user.User_Role, *&user.ID)
+		if err != nil {
+			log.Panic(err)
+			ctx.JSON(http.StatusInternalServerError, gin.H{"error": "error while generating authentication token"})
+			return
+		}
+
+		user.Token = &token
+		user.Refresh_token = &refreshToken
+
+		_, insertError := userCollection.InsertOne(userCtx, user)
+		if insertError != nil {
+			msg := fmt.Sprintf("unsuccessful, user item was not created")
+			ctx.JSON(http.StatusInternalServerError, gin.H{"error": msg})
+			return
+		}
+
+		defer cancel()
+		ctx.JSON(http.StatusOK, user)
 	}
 }
