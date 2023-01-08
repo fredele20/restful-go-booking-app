@@ -25,6 +25,7 @@ func main() {
 	router.Use(gin.Logger())
 
 	routes.UserAuthentication(router)
+	routes.EventRoutes(router)
 
 	router.Run(":"+ port)
 }
