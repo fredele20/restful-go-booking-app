@@ -7,6 +7,8 @@ import (
 )
 
 
+var BASEURI = "/api/booking"
+
 func EventRoutes(incomingRoutes *gin.Engine) {
-	incomingRoutes.POST("/events/create/", core.PublishEvent())
+	incomingRoutes.POST(BASEURI +"/events/create/", core.PublishEvent())
 }

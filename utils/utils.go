@@ -5,10 +5,13 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"net/http"
 	"os"
 	"time"
 
 	"github.com/dgrijalva/jwt-go"
+	"github.com/gin-gonic/gin"
+	"github.com/go-playground/validator/v10"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -112,4 +115,16 @@ func UpdateAllToken(signedToken, signedRefreshToken, userId string) {
 	}
 
 	return
+}
+
+// Input validation function
+var validate = validator.New()
+
+func ValidateInput(structField interface{}, ctx *gin.Context) error {
+	validationErr := validate.Struct(structField)
+	if validationErr != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": validationErr.Error()})
+		return validationErr
+	}
+	return nil
 }

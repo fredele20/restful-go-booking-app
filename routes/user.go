@@ -6,9 +6,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-
-
 func UserAuthentication(incomingRoutes *gin.Engine) {
-	incomingRoutes.POST("/users/register", core.Register())
-	incomingRoutes.POST("/users/login", core.Login())
+	incomingRoutes.POST(BASEURI+"/users/register", core.Register())
+	incomingRoutes.POST(BASEURI+"/users/login", core.Login())
 }

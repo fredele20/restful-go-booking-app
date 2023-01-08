@@ -11,19 +11,26 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/go-playground/validator/v10"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 )
 
 var userCollection *mongo.Collection = database.OpenCollection(database.Client, "users")
-var validate = validator.New()
 
+// func Count(ctx context.Context, input string) (count int64, err error) {
+// 	count, err = userCollection.CountDocuments(ctx, bson.M{"email": input})
+// 	if err != nil {
+// 		log.Panic(err)
+// 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "error while checking for the email"})
+// 		return count, err
+// 	}
+// 	return count, nil
+// }
 
 func Register() gin.HandlerFunc {
 	return func(ctx *gin.Context) {
-		userCtx, cancel := context.WithTimeout(context.Background(), 100 * time.Second)
+		userCtx, cancel := context.WithTimeout(context.Background(), 100*time.Second)
 		var user model.User
 
 		if err := ctx.BindJSON(&user); err != nil {
@@ -31,9 +38,8 @@ func Register() gin.HandlerFunc {
 			return
 		}
 
-		validationErr := validate.Struct(user)
-		if validationErr != nil {
-			ctx.JSON(http.StatusBadRequest, gin.H{"error": validationErr.Error()})
+		// call ValidateInput function here
+		if errValidation := utils.ValidateInput(user, ctx); errValidation != nil {
 			return
 		}
 
@@ -60,11 +66,12 @@ func Register() gin.HandlerFunc {
 		password := utils.HashPassword(*user.Password)
 		user.Password = &password
 
-		user.ID = primitive.NewObjectID().Hex()
+		user.ID = primitive.NewObjectID()
+		user.User_id = user.ID.Hex()
 		user.Created_at, _ = time.Parse(time.RFC3339, time.Now().Format(time.RFC3339))
 		user.Updated_at, _ = time.Parse(time.RFC3339, time.Now().Format(time.RFC3339))
 
-		token, refreshToken, err := utils.GenerateAuthToken(*user.Email, *user.User_Role, *&user.ID)
+		token, refreshToken, err := utils.GenerateAuthToken(*user.Email, *user.User_Role, *&user.User_id)
 		if err != nil {
 			log.Panic(err)
 			ctx.JSON(http.StatusInternalServerError, gin.H{"error": "error while generating authentication token"})
@@ -88,7 +95,7 @@ func Register() gin.HandlerFunc {
 
 func Login() gin.HandlerFunc {
 	return func(ctx *gin.Context) {
-		userCtx, cancel := context.WithTimeout(context.Background(), 100 * time.Second)
+		userCtx, cancel := context.WithTimeout(context.Background(), 100*time.Second)
 		var user model.LoginUser
 		var foundUser model.User
 
@@ -111,8 +118,8 @@ func Login() gin.HandlerFunc {
 			return
 		}
 
-		token, refreshToken, _ := utils.GenerateAuthToken(*foundUser.Email, *foundUser.User_Role, *&foundUser.ID)
-		utils.UpdateAllToken(token, refreshToken, foundUser.ID)
+		token, refreshToken, _ := utils.GenerateAuthToken(*foundUser.Email, *foundUser.User_Role, *&foundUser.User_id)
+		utils.UpdateAllToken(token, refreshToken, foundUser.User_id)
 		err = userCollection.FindOne(ctx, bson.M{"id": foundUser.ID}).Decode(&foundUser)
 		if err != nil {
 			ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})

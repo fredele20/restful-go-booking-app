@@ -3,6 +3,7 @@ package core
 import (
 	"booking-app/database"
 	"booking-app/model"
+	"booking-app/utils"
 	"context"
 	"fmt"
 	"net/http"
@@ -12,17 +13,19 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 )
 
-
 var eventCollection *mongo.Collection = database.OpenCollection(database.Client, "event")
-
 
 func PublishEvent() gin.HandlerFunc {
 	return func(ctx *gin.Context) {
-		eventCtx, cancel := context.WithTimeout(context.Background(), 100 * time.Second)
+		eventCtx, cancel := context.WithTimeout(context.Background(), 100*time.Second)
 		var event model.PublishEvent
 
 		if err := ctx.BindJSON(&event); err != nil {
 			ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+
+		if validationErr := utils.ValidateInput(event, ctx); validationErr != nil {
 			return
 		}
 
