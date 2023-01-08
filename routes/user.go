@@ -10,4 +10,5 @@ import (
 
 func UserAuthentication(incomingRoutes *gin.Engine) {
 	incomingRoutes.POST("/users/register", core.Register())
+	incomingRoutes.POST("/users/login", core.Login())
 }

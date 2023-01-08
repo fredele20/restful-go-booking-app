@@ -1,15 +1,22 @@
 package utils
 
 import (
+	"booking-app/database"
+	"context"
 	"fmt"
 	"log"
 	"os"
 	"time"
 
 	"github.com/dgrijalva/jwt-go"
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 	"golang.org/x/crypto/bcrypt"
 )
 
+var userCollection *mongo.Collection = database.OpenCollection(database.Client, "users")
 var JWT_SECRET_KEY string = os.Getenv("JWT_SECRET_KEY")
 
 // Function to hashing a password
@@ -53,7 +60,7 @@ func GenerateAuthToken(email, role, id string) (signedToken, signedRefreshToken 
 
 	refreshClaims := &SignedDetails{
 		StandardClaims: jwt.StandardClaims{
-			ExpiresAt: time.Now().Local().Add(time.Hour *  time.Duration(168)).Unix(),
+			ExpiresAt: time.Now().Local().Add(time.Hour * time.Duration(168)).Unix(),
 		},
 	}
 
@@ -70,4 +77,39 @@ func GenerateAuthToken(email, role, id string) (signedToken, signedRefreshToken 
 	}
 
 	return token, refreshToken, err
+}
+
+func UpdateAllToken(signedToken, signedRefreshToken, userId string) {
+	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Second)
+	var updatedObj primitive.D
+
+	updatedObj = append(updatedObj, bson.E{"token", signedToken})
+	updatedObj = append(updatedObj, bson.E{"refresh_token", signedRefreshToken})
+
+	updated_at, _ := time.Parse(time.RFC3339, time.Now().Format(time.RFC3339))
+	updatedObj = append(updatedObj, bson.E{"updated_at", updated_at})
+
+	upsert := true
+	filter := bson.M{"user_id": userId}
+	opt := options.UpdateOptions{
+		Upsert: &upsert,
+	}
+
+	_, err := userCollection.UpdateOne(
+		ctx,
+		filter,
+		bson.D{
+			{"$set", updatedObj},
+		},
+		&opt,
+	)
+
+	defer cancel()
+
+	if err != nil {
+		log.Panic(err)
+		return
+	}
+
+	return
 }

@@ -24,7 +24,7 @@ var validate = validator.New()
 
 func Register() gin.HandlerFunc {
 	return func(ctx *gin.Context) {
-		var userCtx, cancel = context.WithTimeout(context.Background(), 100 * time.Second)
+		userCtx, cancel := context.WithTimeout(context.Background(), 100 * time.Second)
 		var user model.User
 
 		if err := ctx.BindJSON(&user); err != nil {
@@ -84,5 +84,41 @@ func Register() gin.HandlerFunc {
 
 		defer cancel()
 		ctx.JSON(http.StatusOK, user)
+	}
+}
+
+func Login() gin.HandlerFunc {
+	return func(ctx *gin.Context) {
+		userCtx, cancel := context.WithTimeout(context.Background(), 100 * time.Second)
+		var user model.LoginUser
+		var foundUser model.User
+
+		if err := ctx.BindJSON(&user); err != nil {
+			ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+
+		err := userCollection.FindOne(userCtx, bson.M{"email": user.Email}).Decode(&foundUser)
+		defer cancel()
+		if err != nil {
+			ctx.JSON(http.StatusBadRequest, gin.H{"error": "authentication failed, email or password incorrect"})
+			return
+		}
+
+		validPassword, msg := utils.VerifyPassword(*user.Password, *foundUser.Password)
+		defer cancel()
+		if !validPassword {
+			ctx.JSON(http.StatusBadRequest, gin.H{"error": msg})
+			return
+		}
+
+		token, refreshToken, _ := utils.GenerateAuthToken(*foundUser.Email, *foundUser.User_Role, *&foundUser.ID)
+		utils.UpdateAllToken(token, refreshToken, foundUser.ID)
+		err = userCollection.FindOne(ctx, bson.M{"id": foundUser.ID}).Decode(&foundUser)
+		if err != nil {
+			ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+		ctx.JSON(http.StatusOK, foundUser)
 	}
 }
