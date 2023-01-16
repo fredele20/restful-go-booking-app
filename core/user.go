@@ -28,6 +28,32 @@ var userCollection *mongo.Collection = database.OpenCollection(database.Client, 
 // 	return count, nil
 // }
 
+func checkExistingUser(ctx context.Context, field, value string) (int64, error) {
+	count, err := userCollection.CountDocuments(ctx, bson.M{field: value})
+	if err != nil {
+		log.Panic(err)
+		fmt.Printf("error checking for %v", field)
+		return count, err
+	}
+
+	return count, nil
+}
+
+// count, err := userCollection.CountDocuments(userCtx, bson.M{"email": user.Email})
+// defer cancel()
+// if err != nil {
+// 	log.Panic(err)
+// 	ctx.JSON(http.StatusInternalServerError, gin.H{"error": "error while checking for the email"})
+// 	return
+// }
+
+// count, err = userCollection.CountDocuments(userCtx, bson.M{"phone": user.Phone})
+// defer cancel()
+// if err != nil {
+// 	ctx.JSON(http.StatusInternalServerError, gin.H{"error": "error while checking for the phone number"})
+// 	return
+// }
+
 func Register() gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		userCtx, cancel := context.WithTimeout(context.Background(), 100*time.Second)
@@ -43,22 +69,11 @@ func Register() gin.HandlerFunc {
 			return
 		}
 
-		count, err := userCollection.CountDocuments(userCtx, bson.M{"email": user.Email})
-		defer cancel()
-		if err != nil {
-			log.Panic(err)
-			ctx.JSON(http.StatusInternalServerError, gin.H{"error": "error while checking for the email"})
-			return
-		}
+		// this code is expected to work just as the previous one!
+		count1, _ := checkExistingUser(userCtx, "email", *user.Email)
+		count2, _ := checkExistingUser(userCtx, "phone", *user.Phone)
 
-		count, err = userCollection.CountDocuments(userCtx, bson.M{"phone": user.Phone})
-		defer cancel()
-		if err != nil {
-			ctx.JSON(http.StatusInternalServerError, gin.H{"error": "error while checking for the phone number"})
-			return
-		}
-
-		if count > 0 {
+		if count1 > 0 || count2 > 0{
 			ctx.JSON(http.StatusBadRequest, gin.H{"error": "a user with the email or phone number already exist"})
 			return
 		}
